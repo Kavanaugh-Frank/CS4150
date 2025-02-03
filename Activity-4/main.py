@@ -64,11 +64,21 @@ for col1 in range(len(data)):
 
 # heatmap of the result matrix
 plt.figure(figsize=(10, 8))
-plt.imshow(result_matrix, cmap='plasma')
+plt.imshow(result_matrix, cmap='Purples')
 plt.colorbar()
 plt.title('Heatmap from the Jaccard Calculations')
 plt.show()
 
+difference_matrix = [[0 for _ in range(len(data))] for _ in range(len(data))]
+for i in range(len(result_matrix)):
+    for j in range(len(result_matrix)):
+        difference_matrix[i][j] = 1 - result_matrix[i][j]
+
+plt.figure(figsize=(10, 8))
+plt.imshow(difference_matrix, cmap='Purples')
+plt.colorbar()
+plt.title('Heatmap from the Jaccard Difference (Complement)')
+plt.show()
 
 # dump the result matrix to a CSV file
 with open("result_matrix.csv", "w") as f:
