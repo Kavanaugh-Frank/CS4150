@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Filter the Data.txt file to the required Chr13 data
 with open("data.txt", "r") as f:
@@ -33,11 +34,11 @@ with open("chr13.txt", "r") as f:
     data = extracted_nps
 
 # making a blank matrix # of Cols x # of Cols
-result_matrix = [[0 for _ in range(len(data))] for _ in range(len(data))]
+result_matrix = [[np.nan for _ in range(len(data))] for _ in range(len(data))]
 
 # doing the Jaccard calculation
 for col1 in range(len(data)):
-    for col2 in range(len(data)):
+    for col2 in range(0, col1 + 1):
         W = 0 # A = 1, B = 1
         X = 0 # A = 1, B = 0
         Y = 0 # A = 0, B = 1
@@ -64,18 +65,18 @@ for col1 in range(len(data)):
 
 # heatmap of the result matrix
 plt.figure(figsize=(10, 8))
-plt.imshow(result_matrix, cmap='Purples')
+plt.imshow(result_matrix, cmap='viridis')
 plt.colorbar()
 plt.title('Heatmap from the Jaccard Calculations')
 plt.show()
 
-difference_matrix = [[0 for _ in range(len(data))] for _ in range(len(data))]
+difference_matrix = [[np.nan for _ in range(len(data))] for _ in range(len(data))]
 for i in range(len(result_matrix)):
-    for j in range(len(result_matrix)):
+    for j in range(0, i+1):
         difference_matrix[i][j] = 1 - result_matrix[i][j]
 
 plt.figure(figsize=(10, 8))
-plt.imshow(difference_matrix, cmap='Purples')
+plt.imshow(difference_matrix, cmap='viridis')
 plt.colorbar()
 plt.title('Heatmap from the Jaccard Difference (Complement)')
 plt.show()
