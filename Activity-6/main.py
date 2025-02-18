@@ -1,4 +1,5 @@
 import random
+import math
 
 # Filter the Data.txt file to the required Chr13 data
 with open("data.txt", "r") as f:
@@ -61,17 +62,63 @@ def calculate_similarity_matrix(data):
             result_matrix[col1][col2] = J
     return result_matrix
 
+def calculate_medoid_on_columns(group_result_matrix):
+    matrix_size = len(group_result_matrix)
+    lowest_col = float('inf')
+    lowest_col_idx = -1 
+
+    for col in range(matrix_size):
+        column_total_distance = 0
+        for other_col in range(col + 1, matrix_size):
+            column_total_distance += (1 - group_result_matrix[col][other_col])
+
+        if column_total_distance < lowest_col:
+            lowest_col = column_total_distance
+            lowest_col_idx = col
+
+    return lowest_col_idx
+
+def calculate_least_diff_col(group_result_matrix):
+    lowest_col = float("inf")
+    lowest_col_idx = -1
+
+    matrix_size = len(group_result_matrix)
+
+        # calculate the average of each row
+    row_sums = []
+    for i in range(matrix_size):
+        row_sum = sum(group_result_matrix[i]) / matrix_size
+        row_sums.append(row_sum)
+
+        # calculate the total difference of each column compared to the rest of the columns
+        # to find the column with the shortest distance from the rest of the columns
+    for col in range(matrix_size):
+        column_total_diff = 0
+        for i in range(matrix_size):
+                # calculating the total distance of the specific col/row against the row average
+            row_total_diff = abs(float(group_result_matrix[i][col]) - row_sums[i])
+            column_total_diff += row_total_diff
+            
+            # keeping track of the column with the lowest total difference against the averages
+        if column_total_diff < lowest_col:
+            lowest_col = column_total_diff
+            lowest_col_idx = col
+    return lowest_col_idx
+
 result_matrix = calculate_similarity_matrix(data)
 
 # seed the pseudo random number generator
-random.seed(15)
-# random.seed()
+# random.seed(15)
+random.seed()
 
 # how many k-groups should there be
+# this can be changed to any number
 number_of_groups = 3
-# Ensure k_values are within the range of the data
+
+# init the k_values with 3 random NPs that exist inside the data
 k_values = [random.randint(0, len(data) - 1) for _ in range(number_of_groups)]
-# make "number_of_groups" number of empty lists to hold values that belong to each group
+
+# make empty k-groups
 k_groups = [[] for _ in range(number_of_groups)]
 
 print(f"Randomly selected NPs {k_values}: {', '.join([headers[k] for k in k_values])}")
@@ -91,13 +138,20 @@ for i in range(100):
     # if the current k-groups are the same as the last 6 k-groups
     # we determined the algorithm has oscillated between values and stop
     if k_groups in previous_k_groups:
-        # print("Oscillated\n")
-        break
+        print("Oscillated\n")
+        # get some more random k-values to replace the oscillated ones
+        k_values = [random.randint(0, len(data) - 1) for _ in range(number_of_groups)]
+        k_groups = [[] for _ in range(number_of_groups)]
+        for i in range(len(result_matrix)):
+            similarities = [result_matrix[k][i] for k in k_values]
+            max_index = similarities.index(max(similarities))
+            k_groups[max_index].append(i)
+        # break
 
     # this is the list of previous k-groups that are compared to the current k-groups
     # keep the list to 6 total past k-groups
     previous_k_groups.append(k_groups.copy())
-    if len(previous_k_groups) > 6:
+    if len(previous_k_groups) > int(number_of_groups * 1.5):
         previous_k_groups.pop(0)
 
     # just in case a group is empty make a new random medoid for that group, and make that medoid the only member of that group
@@ -123,30 +177,10 @@ for i in range(100):
 
         group_result_matrix = calculate_similarity_matrix(result)
 
-        lowest_col = float("inf")
-        lowest_col_idx = 0
+        # two separate ways to get the new medoid
 
-        matrix_size = len(group_result_matrix)
-
-        # calculate the average of each row to compare specific col/rows items against the row average  
-        row_sums = []
-        for i in range(matrix_size):
-            row_sum = sum(group_result_matrix[i]) / matrix_size
-            row_sums.append(row_sum)
-
-        # calculate the total difference of each column compared to the rest of the columns
-        # to find the column with the shortest distance from the rest of the columns
-        for col in range(matrix_size):
-            column_total_diff = 0
-            for i in range(matrix_size):
-                # calculating the total distance of the specific col/row against the row average
-                row_total_diff = abs(float(group_result_matrix[i][col]) - row_sums[i])
-                column_total_diff += row_total_diff
-            
-            # keeping track of the column with the lowest total difference against the averages
-            if column_total_diff < lowest_col:
-                lowest_col = column_total_diff
-                lowest_col_idx = col
+        lowest_col_idx = calculate_medoid_on_columns(group_result_matrix)
+        # lowest_col_idx = calculate_least_diff_col(group_result_matrix)
 
         new_k_values.append(k_group[lowest_col_idx])
 
@@ -159,6 +193,8 @@ for i in range(100):
 
     k_values = new_k_values
 
+
+# Determining how well the algorithm did
 
 total_variation = 0
 total_average_variation = 0
@@ -181,26 +217,25 @@ for iteration, k_group in enumerate(k_groups):
         result.append(data[index])
         header_idx_count += 1
 
-    print("k_value_header: ", k_value_header)
     group_result_matrix = calculate_similarity_matrix(result)
+    
+    size = len(group_result_matrix)
+    total = 0
+    for i in range(size):
+        for j in range(size):
+            total += group_result_matrix[i][j]
+    average = total / (size * size)
 
     variation = 0
-    size = len(group_result_matrix)
-    
-    # loop through the unique pairs in the group
-    # and find the total distance of the final k-value against the rest of the columns
     for i in range(size):
-        for j in range(i + 1, size):
-            variation += abs(group_result_matrix[i][k_value_header_position] - group_result_matrix[i][j])
+        for j in range(size):
+            variation += (group_result_matrix[i][j] - average) ** 2
 
     total_variation += variation
     
-    average_variation = variation / size**2
+    average_variation = math.sqrt(variation / (size**2 - 1))
     total_average_variation += average_variation
 
-    print("Number of NPs in this group: ", size)
-    print(f"Total Variation (for group {iteration + 1}): ", round(variation, 5))
-    print(f"Average Difference from the K-Value (for group {iteration + 1}): ", round(average_variation, 5), "\n")
-
-print("Total Variation: ", round(total_variation, 5))
-print("Total Average Difference from the K-Value: ", round(total_average_variation, 5))
+    print("K_Value_header: ", k_value_header)
+    print(f"Variance (for group {iteration + 1}): ", round(average_variation, 5), "\n")
+print("Total Variance (Lower the Better): ", round(total_average_variation, 5))
