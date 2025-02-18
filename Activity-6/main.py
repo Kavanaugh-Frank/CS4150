@@ -179,8 +179,8 @@ for i in range(100):
 
         # two separate ways to get the new medoid
 
-        lowest_col_idx = calculate_medoid_on_columns(group_result_matrix)
-        # lowest_col_idx = calculate_least_diff_col(group_result_matrix)
+        # lowest_col_idx = calculate_medoid_on_columns(group_result_matrix)
+        lowest_col_idx = calculate_least_diff_col(group_result_matrix)
 
         new_k_values.append(k_group[lowest_col_idx])
 
