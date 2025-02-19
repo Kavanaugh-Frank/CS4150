@@ -112,7 +112,7 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
     previous_k_groups = []
     past_lowest_col = float('inf')  # past lowest column cost
 
-    for i in range(100):  # max iterations
+    for i in range(100):
         new_k_values = []
         current_lowest_col = float('inf')  # track the current lowest column cost
 
@@ -156,11 +156,9 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
                 k_groups[group_idx] = [new_medoid]
 
         for k_group in k_groups:
-            # Calculate the group's similarity matrix
             result = [data[index] for index in k_group]
             group_result_matrix = calculate_similarity_matrix(result)
 
-            # Calculate the new medoid and its cost
             lowest_col_idx, lowest_col = calculate_medoid_on_columns(group_result_matrix)
 
             # only accept the change if it brings down the cost of the medoid
@@ -183,7 +181,6 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
 
     return k_values, k_groups
 
-# variance calculation, this will show how well the clustering did
 def calculate_variance(k_values, k_groups, data, headers):
     total_variation = 0
     total_average_variation = 0
@@ -229,15 +226,13 @@ def calculate_variance(k_values, k_groups, data, headers):
     return total_average_variation
 
 
-
 # main body of the file, runs the algorithm x number of times and keeps track of the best result
 
-# check if the number of groups is provided as a command line argument
+# check if the number of iterations is provided as a command line argument
 if len(sys.argv) != 2:
     print("Usage: python main.py <number_of_iterations>")
     sys.exit(1)
 
-# get the number of groups from the command line argument
 number_of_groups = 3
 
 # calculate the similarity matrix for the text file data
@@ -245,6 +240,7 @@ result_matrix = calculate_similarity_matrix(data)
 past_lowest_variance = float('inf')
 best_initial_k_values = []
 best_ending_k_values = []
+
 for _ in range(0, int(sys.argv[1])):
     # init the k_values with random NPs that exist inside the data
     k_values = [random.randint(0, len(data) - 1) for _ in range(number_of_groups)]
