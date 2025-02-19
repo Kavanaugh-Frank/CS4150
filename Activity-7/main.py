@@ -1,6 +1,9 @@
 import random
 import math
 import sys
+import matplotlib.pyplot as plt
+
+random.seed()
 
 # Filter the Data.txt file to the required Chr13 data
 with open("data.txt", "r") as f:
@@ -57,7 +60,7 @@ def calculate_similarity_matrix(data):
                 elif A == 0 and B == 1:
                     Y += 1
         
-            J = W / min(X + W, Y + W)
+            J = W / (W + X + Y)
 
             # setting the Matrix with the similarity scores
             result_matrix[col1][col2] = J
@@ -122,9 +125,9 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
             similarities = [result_matrix[k][i] for k in k_values]
             max_value = max(similarities)
             if similarities.count(max_value) > 1:
-                # there is a tie, so just whichever group at random
-                max_indices = [value for value in similarities if value == max_value]
-                max_index = similarities.index(random.choice(max_indices))
+                # there is a tie, so assign to the group with the least amount of data points
+                min_group_size = min(len(k_groups[idx]) for idx, value in enumerate(similarities) if value == max_value)
+                max_index = next(idx for idx, value in enumerate(similarities) if value == max_value and len(k_groups[idx]) == min_group_size)
             else:
                 max_index = similarities.index(max(similarities))
             k_groups[max_index].append(i)
@@ -161,17 +164,8 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
 
             lowest_col_idx, lowest_col = calculate_medoid_on_columns(group_result_matrix)
 
-            # only accept the change if it brings down the cost of the medoid
-            if lowest_col < current_lowest_col:
-                current_lowest_col = lowest_col
-
-            if lowest_col < past_lowest_col:
-                new_k_values.append(k_group[lowest_col_idx])
-            else:
-                new_k_values.append(k_values[k_groups.index(k_group)])
-
-        # update the past lowest column cost
-        past_lowest_col = current_lowest_col
+            # update the lowest column no matter what
+            new_k_values.append(k_group[lowest_col_idx])
 
         # check for convergence
         if new_k_values == k_values:
@@ -181,7 +175,7 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
 
     return k_values, k_groups
 
-def calculate_variance(k_values, k_groups, data, headers):
+def calculate_variance(k_values, k_groups, data, headers, final_calculation=False):
     total_variation = 0
     total_average_variation = 0
     for iteration, k_group in enumerate(k_groups):
@@ -218,7 +212,7 @@ def calculate_variance(k_values, k_groups, data, headers):
             # if the size of any of the groups is just 1, then I am assuming that
             # the variation will not be good enough so I sabotage with a high value
             # and size == 1 throws an error when calculating the average variation
-            average_variation = 1000
+            average_variation = 10000
         else:
             average_variation = math.sqrt(variation / (size**2 - 1))
         total_average_variation += average_variation
@@ -257,6 +251,24 @@ for _ in range(0, int(sys.argv[1])):
         best_ending_k_values = k_values
         best_k_groups = k_groups
 
+print("Length of Groups: ", len(best_k_groups[0]), len(best_k_groups[1]), len(best_k_groups[2]))
 print("Best Initial K Values: ", best_initial_k_values)
 print("Best Ending K Values: ", best_ending_k_values)
 print("Best Total Variance: ", past_lowest_variance)
+
+
+def plot_heatmap(matrix, title):
+    plt.autoscale()
+    plt.imshow(matrix, cmap='coolwarm')
+    plt.colorbar()
+    plt.title(title)
+    plt.show()
+
+for idx, k_group in enumerate(best_k_groups):
+    group_data = [data[i] for i in k_group]
+    matrix = []
+    for col_index in k_group:
+        col = [int(data[col_index][i]) for i in range(len(data[col_index]))]
+        matrix.append(col)
+
+    plot_heatmap(matrix, f"Heatmap for Group {idx + 1}")
