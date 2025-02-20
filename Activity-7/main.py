@@ -61,6 +61,7 @@ def calculate_similarity_matrix(data):
                     Y += 1
         
             J = W / (W + X + Y)
+            # J = W / min(W + X, W + Y)
 
             # setting the Matrix with the similarity scores
             result_matrix[col1][col2] = J
@@ -81,33 +82,6 @@ def calculate_medoid_on_columns(group_result_matrix):
             lowest_col_idx = col
 
     return lowest_col_idx, lowest_col
-
-def calculate_least_diff_col(group_result_matrix):
-    lowest_col = float("inf")
-    lowest_col_idx = -1
-
-    matrix_size = len(group_result_matrix)
-
-        # calculate the average of each row
-    row_sums = []
-    for i in range(matrix_size):
-        row_sum = sum(group_result_matrix[i]) / matrix_size
-        row_sums.append(row_sum)
-
-        # calculate the total difference of each column compared to the rest of the columns
-        # to find the column with the shortest distance from the rest of the columns
-    for col in range(matrix_size):
-        column_total_diff = 0
-        for i in range(matrix_size):
-                # calculating the total distance of the specific col/row against the row average
-            row_total_diff = abs(float(group_result_matrix[i][col]) - row_sums[i])
-            column_total_diff += row_total_diff
-            
-            # keeping track of the column with the lowest total difference against the averages
-        if column_total_diff < lowest_col:
-            lowest_col = column_total_diff
-            lowest_col_idx = col
-    return lowest_col_idx
 
 def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values):
     k_groups = [[] for _ in range(number_of_groups)]
@@ -175,7 +149,7 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
 
     return k_values, k_groups
 
-def calculate_variance(k_values, k_groups, data, headers, final_calculation=False):
+def calculate_variance(k_values, k_groups, data, headers):
     total_variation = 0
     total_average_variation = 0
     for iteration, k_group in enumerate(k_groups):
@@ -259,8 +233,10 @@ print("Best Total Variance: ", past_lowest_variance)
 
 def plot_heatmap(matrix, title):
     plt.autoscale()
-    plt.imshow(matrix, cmap='coolwarm')
+    plt.imshow(matrix, cmap='winter')
     plt.colorbar()
+    plt.xlabel("Genomic Windows")
+    plt.ylabel("Nuclear Profiles")
     plt.title(title)
     plt.show()
 

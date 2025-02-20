@@ -1,0 +1,285 @@
+import random
+import math
+import sys
+import matplotlib.pyplot as plt
+
+random.seed()
+
+# Filter the Data.txt file to the required Chr13 data
+with open("data.txt", "r") as f:
+    header = f.readline()
+    all_lines = f.readlines()
+    lines = all_lines[69714:69714 + 81]
+
+with open("chr13.txt", "w") as f:
+    f.write(header)
+    f.writelines(lines)
+
+chr13_col_hash = {}
+
+with open("chr13.txt", "r") as f:
+    column_header = f.readline().split("\t")  
+    all_lines = f.readlines()
+    
+    # extracting the NPs that detect a window
+    extracted_nps = []
+    extracted_headers = []
+
+    for col_index in range(3, len(column_header)):
+        column = [line.split()[col_index] for line in all_lines]
+        non_zero_found = False
+        for value in column:
+            if int(value) != 0:
+                non_zero_found = True
+                break
+        if non_zero_found:
+            extracted_nps.append(column)
+            extracted_headers.append(column_header[col_index])
+
+    data = extracted_nps
+    headers = extracted_headers
+
+with open("Hist1_region_features.csv") as f:
+    csv_headers = [f.readline().split(",")]
+    lines = f.readlines()
+    csv_data = [lines.split(",") for lines in lines]
+
+def calculate_similarity_matrix(data):
+    # making a None matrix # of Cols x # of Cols
+    result_matrix = [[None for _ in range(len(data))] for _ in range(len(data))]
+    
+    for col1 in range(len(data)):
+        for col2 in range(0, len(data)):
+            W = 0 # A = 1, B = 1
+            X = 0 # A = 1, B = 0
+            Y = 0 # A = 0, B = 1
+
+        #going down the rows to increment the 3 counters based on the values of A and B
+            for index in range(len(data[0])):
+                A = int(data[col1][index])
+                B = int(data[col2][index])
+                if A == 1 and B == 1:
+                    W += 1
+                elif A == 1 and B == 0:
+                    X += 1
+                elif A == 0 and B == 1:
+                    Y += 1
+        
+            J = W / (W + X + Y)
+            # J = W / min(W + X, W + Y)
+
+            # setting the Matrix with the similarity scores
+            result_matrix[col1][col2] = J
+    return result_matrix
+
+def calculate_medoid_on_columns(group_result_matrix):
+    matrix_size = len(group_result_matrix)
+    lowest_col = float('inf')
+    lowest_col_idx = -1 
+
+    for col in range(matrix_size):
+        column_total_distance = 0
+        for other_col in range(col + 1, matrix_size):
+            column_total_distance += (1 - group_result_matrix[col][other_col])
+
+        if column_total_distance < lowest_col:
+            lowest_col = column_total_distance
+            lowest_col_idx = col
+
+    return lowest_col_idx, lowest_col
+
+def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values):
+    k_groups = [[] for _ in range(number_of_groups)]
+
+    previous_k_groups = []
+    past_lowest_col = float('inf')  # past lowest column cost
+
+    for i in range(100):
+        new_k_values = []
+        current_lowest_col = float('inf')  # track the current lowest column cost
+
+        # assigning columns to groups
+        k_groups = [[] for _ in range(number_of_groups)]
+        for i in range(len(result_matrix)):
+            similarities = [result_matrix[k][i] for k in k_values]
+            max_value = max(similarities)
+            if similarities.count(max_value) > 1:
+                # there is a tie, so assign to the group with the least amount of data points
+                min_group_size = min(len(k_groups[idx]) for idx, value in enumerate(similarities) if value == max_value)
+                max_index = next(idx for idx, value in enumerate(similarities) if value == max_value and len(k_groups[idx]) == min_group_size)
+            else:
+                max_index = similarities.index(max(similarities))
+            k_groups[max_index].append(i)
+
+        # check for oscillation
+        if k_groups in previous_k_groups:
+            print("Oscillated")
+            # get some new start values
+            k_values = [random.randint(0, len(data) - 1) for _ in range(number_of_groups)]
+            k_groups = [[] for _ in range(number_of_groups)]
+            for i in range(len(result_matrix)):
+                similarities = [result_matrix[k][i] for k in k_values]
+                max_index = similarities.index(max(similarities))
+                k_groups[max_index].append(i)
+
+        # keep track of previous k-groups to detect oscillation
+        previous_k_groups.append(k_groups.copy())
+        if len(previous_k_groups) > int(number_of_groups * 1.5):
+            previous_k_groups.pop(0)
+
+        # handle empty groups
+        for group_idx in range(number_of_groups):
+            if k_groups[group_idx] == []:
+                while True:
+                    new_medoid = random.randint(0, len(data) - 1)
+                    if new_medoid not in new_k_values:
+                        break
+                k_values[group_idx] = new_medoid
+                k_groups[group_idx] = [new_medoid]
+
+        for k_group in k_groups:
+            result = [data[index] for index in k_group]
+            group_result_matrix = calculate_similarity_matrix(result)
+
+            lowest_col_idx, lowest_col = calculate_medoid_on_columns(group_result_matrix)
+
+            # update the lowest column no matter what
+            new_k_values.append(k_group[lowest_col_idx])
+
+        # check for convergence
+        if new_k_values == k_values:
+            break
+
+        k_values = new_k_values
+
+    return k_values, k_groups
+
+def calculate_variance(k_values, k_groups, data, headers):
+    total_variation = 0
+    total_average_variation = 0
+    for iteration, k_group in enumerate(k_groups):
+        # grabbing the rest of the columns that belong to the group, including the center
+        result = []
+        header = []
+        header_idx_count = 0
+        for index in k_group:
+            # keep track of the position of the k-value header so that we know where it is in the similarity matrix
+            # and can use it to find total variation later
+            if index == k_values[iteration]:
+                k_value_header = headers[index]
+                k_value_header_position = header_idx_count
+            header.append(headers[index])
+            result.append(data[index])
+            header_idx_count += 1
+
+        group_result_matrix = calculate_similarity_matrix(result)
+        
+        size = len(group_result_matrix)
+        total = 0
+        for i in range(size):
+            for j in range(size):
+                total += group_result_matrix[i][j]
+        average = total / (size * size)
+
+        variation = 0
+        for i in range(size):
+            for j in range(size):
+                variation += (group_result_matrix[i][j] - average) ** 2
+
+        total_variation += variation
+        if size == 1:
+            # if the size of any of the groups is just 1, then I am assuming that
+            # the variation will not be good enough so I sabotage with a high value
+            # and size == 1 throws an error when calculating the average variation
+            average_variation = 10000
+        else:
+            average_variation = math.sqrt(variation / (size**2 - 1))
+        total_average_variation += average_variation
+
+    return total_average_variation
+
+
+# main body of the file, runs the algorithm x number of times and keeps track of the best result
+
+# check if the number of iterations is provided as a command line argument
+if len(sys.argv) != 2:
+    print("Usage: python main.py <number_of_iterations>")
+    sys.exit(1)
+
+number_of_groups = 3
+
+# calculate the similarity matrix for the text file data
+result_matrix = calculate_similarity_matrix(data)
+past_lowest_variance = float('inf')
+best_initial_k_values = []
+best_ending_k_values = []
+best_k_groups = []
+for _ in range(0, int(sys.argv[1])):
+    # init the k_values with random NPs that exist inside the data
+    k_values = [random.randint(0, len(data) - 1) for _ in range(number_of_groups)]
+
+    initial_k_values = k_values.copy()
+    
+    k_values, k_groups = k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values)
+
+    variance = calculate_variance(k_values, k_groups, data, headers)
+
+    if variance < past_lowest_variance:
+        past_lowest_variance = variance
+        best_initial_k_values = initial_k_values
+        best_ending_k_values = k_values
+        best_k_groups = k_groups
+
+hist1_cluster_percentages = [[] for _ in range(len(best_k_groups))]
+
+print(csv_headers[0][13])
+# HIST 1
+for i, group in enumerate(best_k_groups):
+    # print("Group: ", i)
+    group_headers = [headers[i] for i in group]
+    group_data = [data[i] for i in group]
+    for j, row in enumerate(group_data): # every row is an NP
+        percentage_counter = 0
+        for count, col in enumerate(row): 
+            if int(row[count]) == 1 and int(csv_data[count][13]) == 1:
+                print("here")
+                percentage_counter += 1
+        # print(f"Row: ({headers[j]})", j, ": " , round(percentage_counter / len(row) * 100, 2), "%")
+        hist1_cluster_percentages[i].append(round(percentage_counter / len(row) * 100, 2))
+
+plt.title("Hist1 Region Features")
+plt.xlabel("Clusters")
+plt.ylabel("Percentage of each NP that detected a window")
+plt.boxplot(hist1_cluster_percentages, showfliers=True)
+for i in range(len(hist1_cluster_percentages)):
+    y = hist1_cluster_percentages[i]
+    x = [i + 1] * len(y)
+    plt.scatter(x, y, alpha=0.5)
+plt.xticks([1, 2, 3], [f"Cluster 1 ({best_ending_k_values[0]})", f"Cluster 2 ({best_ending_k_values[1]})", f"Cluster 3 ({best_ending_k_values[2]})"])
+plt.show()
+
+print(csv_headers[0][9])
+# LAD
+lad_cluster_percentages = [[] for _ in range(len(best_k_groups))]
+for i, group in enumerate(best_k_groups):
+    # print("Group: ", i)
+    group_headers = [headers[i] for i in group]
+    group_data = [data[i] for i in group]
+    for j, row in enumerate(group_data): # every row is an NP
+        percentage_counter = 0
+        for count, col in enumerate(row): 
+            if int(row[count]) == 1 and int(csv_data[count][9]) == 1:
+                percentage_counter += 1
+        # print(f"Row: ({headers[j]})", j, ": " , round(percentage_counter / len(row) * 100, 2), "%")
+        lad_cluster_percentages[i].append(round(percentage_counter / len(row) * 100, 2))
+
+plt.title("LAD Region Features")
+plt.xlabel("Clusters")
+plt.ylabel("Percentage of each NP that detected a window")
+plt.boxplot(lad_cluster_percentages, showfliers=True)
+for i in range(len(lad_cluster_percentages)):
+    y = lad_cluster_percentages[i]
+    x = [i + 1] * len(y)
+    plt.scatter(x, y, alpha=0.5)
+plt.xticks([1, 2, 3], [f"Cluster 1 ({best_ending_k_values[0]})", f"Cluster 2 ({best_ending_k_values[1]})", f"Cluster 3 ({best_ending_k_values[2]})"])
+plt.show()
