@@ -3,7 +3,6 @@ import math
 import sys
 import matplotlib.pyplot as plt
 import statistics
-import numpy as np
 
 random.seed()
 
