@@ -19,34 +19,37 @@ col_hash = []
 # grabbing data so that I can get the average and the standard deviation
 with open("data.txt", "r") as file:
     full_headers = file.readline().split("\t")
+    # the first 3 columns are just information about the windows so skip those
     col_hash = [0 for _ in range(0, len(full_headers) - 3)]
     for line in file:
         values = line.split("\t")
         for col in range(3, len(values)):
             col_hash[col - 3] += int(values[col])
 
+# will be used for the z-score farther down
 col_average = statistics.mean(col_hash)
 col_std_dev = statistics.stdev(col_hash)
 print("The Average Number of 1s for the Columns (NPs): ", col_average)
 print("The Standard Deviation for the Columns (NPs): ", col_std_dev)
 
-# Filter the Data.txt file to the required Chr13 data
+# filter out the rows of the full genome to only the HIST1 region
 with open("data.txt", "r") as f:
     header = f.readline()
     all_lines = f.readlines()
     lines = all_lines[69714:69714 + 81]
 
+# creating a new text file that is just the HIST1 Chr13 region
 with open("chr13.txt", "w") as f:
     f.write(header)
     f.writelines(lines)
 
-chr13_col_hash = {}
-
+# now reading the information from the HIST1 Chr13 region
+# and getting the header, and full information of columns that have
+# at least one '1' in them
 with open("chr13.txt", "r") as f:
     column_header = f.readline().split("\t")  
     all_lines = f.readlines()
     
-    # extracting the NPs that detect a window
     extracted_nps = []
     extracted_headers = []
 
@@ -61,9 +64,11 @@ with open("chr13.txt", "r") as f:
             extracted_nps.append(column)
             extracted_headers.append(column_header[col_index])
 
-    print("Number of NPs: ", len(extracted_nps))
-    print("Number of Windows: ", len(extracted_nps[0]))
+print("Number of NPs: ", len(extracted_nps))
+print("Number of Windows: ", len(extracted_nps[0]))
 
+# function to create a Jaccard Similarity 2D Matrix
+# using the normalized denominator
 def calculate_similarity_matrix(data):
         result_matrix = [[None for _ in range(len(data))] for _ in range(len(data))]
         
@@ -92,7 +97,10 @@ def calculate_similarity_matrix(data):
                 result_matrix[col1][col2] = J
         return result_matrix
 
-def k_means(extracted_nps, k_values, num_groups, max_iter=100):    
+# the k-medoids clustering functions
+def k_means(extracted_nps, k_values, num_groups, max_iter=100):   
+    # takes in the jaccard matrix, and the current k-values and assigns each
+    # column index to a k-group 
     def assign_data_points_to_groups(jaccard_matrix, k_values, k_groups):
         for i in range(len(jaccard_matrix)):
             similarities = [jaccard_matrix[k][i] for k in k_values]
@@ -110,7 +118,11 @@ def k_means(extracted_nps, k_values, num_groups, max_iter=100):
             else:
                 highest_similarity = similarities.index(max(similarities))
             k_groups[highest_similarity].append(i)
+        
+        return k_groups
 
+    # takes in a group's jaccard matrix and finds the column that has the shortest total distance
+    # it then returns the index of that column in the original group
     def calculate_medoid_on_columns(group_result_matrix, original_indices):
         matrix_size = len(group_result_matrix)
         lowest_col = float('inf')
@@ -126,19 +138,18 @@ def k_means(extracted_nps, k_values, num_groups, max_iter=100):
                 lowest_col = column_total_distance
                 lowest_col_idx = col
 
-        return original_indices[lowest_col_idx], lowest_col  # Return actual column index
+        return original_indices[lowest_col_idx], lowest_col
 
     for _ in range(max_iter):
         jaccard_matrix = calculate_similarity_matrix(extracted_nps)
 
         k_groups = [[] for _ in range(num_groups)]
 
-        assign_data_points_to_groups(jaccard_matrix, k_values, k_groups)
+        k_groups = assign_data_points_to_groups(jaccard_matrix, k_values, k_groups)
 
         new_k_values = []
         for group in k_groups:
             original_indices = [i for i in group]
-            # k_group = np.array(extracted_nps)[original_indices, :]
             k_group = [extracted_nps[i] for i in original_indices]
             group_jaccard_matrix = calculate_similarity_matrix(k_group)
             medoid, _ = calculate_medoid_on_columns(group_jaccard_matrix, original_indices)
@@ -151,20 +162,17 @@ def k_means(extracted_nps, k_values, num_groups, max_iter=100):
 
     return new_k_values, k_groups
 
-def calculate_variance(k_values, k_groups, data, headers):
+# calculate the total variance of the k-groups
+# using a jaccard matrix for each of the groups
+def calculate_variance(k_groups, data, headers):
     total_variation = 0
     total_average_variation = 0
-    for iteration, k_group in enumerate(k_groups):
+    for _, k_group in enumerate(k_groups):
         # grabbing the rest of the columns that belong to the group, including the center
         result = []
         header = []
         header_idx_count = 0
         for index in k_group:
-            # keep track of the position of the k-value header so that we know where it is in the similarity matrix
-            # and can use it to find total variation later
-            if index == k_values[iteration]:
-                k_value_header = headers[index]
-                k_value_header_position = header_idx_count
             header.append(headers[index])
             result.append(data[index])
             header_idx_count += 1
@@ -184,13 +192,7 @@ def calculate_variance(k_values, k_groups, data, headers):
                 variation += (group_result_matrix[i][j] - average) ** 2
 
         total_variation += variation
-        if size == 1:
-            # if the size of any of the groups is just 1, then I am assuming that
-            # the variation will not be good enough so I sabotage with a high value
-            # and size == 1 throws an error when calculating the average variation
-            average_variation = 10000
-        else:
-            average_variation = math.sqrt(variation / (size**2 - 1))
+        average_variation = math.sqrt(variation / (size**2 - 1))
         total_average_variation += average_variation
 
     return total_average_variation
@@ -210,7 +212,7 @@ for _ in range(number_of_iterations):
 
     k_values, clusters = k_means(extracted_nps, k_values, num_groups)
 
-    variance = calculate_variance(k_values, clusters, extracted_nps, extracted_headers)
+    variance = calculate_variance(clusters, extracted_nps, extracted_headers)
 
     if variance < lowest_variance:
         lowest_variance = variance
@@ -218,7 +220,11 @@ for _ in range(number_of_iterations):
         best_ending_k_values = k_values
         best_k_groups = clusters
 
-print(k_values, lowest_variance, len(clusters[0]), len(clusters[1]), len(clusters[2]))
+print("Final Medoids: ", k_values)
+print("Lowest Variance: ", lowest_variance)
+print("Cluster Sizes: ")
+for i, cluster in enumerate(clusters):
+    print(f"  Cluster {i+1}: {len(cluster)} elements")
 
 def categorize_value_z_score_col(value, col_average, col_std_dev):
     z_score = (value - col_average) / col_std_dev
@@ -236,11 +242,13 @@ def categorize_value_z_score_col(value, col_average, col_std_dev):
 category_counts_col = {i: [0] * len(best_k_groups) for i in range(5)}
 
 for i, group in enumerate(best_k_groups):
+    # get the header for each index in the group
     data_headers = [extracted_headers[index] for index in group]
     data_group = []
+    # match the headers from the group, with the headers from the full list of data
+    # this will make each item in data_group the column in the original list of data
     for header in data_headers:
         data_group.append(col_hash[full_headers.index(header) - 3])
-    print(len(data_group))
     for value in data_group:
         category, _ = categorize_value_z_score_col(value, col_average, col_std_dev)
         category_counts_col[category][i] += 1
