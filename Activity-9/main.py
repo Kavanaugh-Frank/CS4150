@@ -220,25 +220,20 @@ for _ in range(number_of_iterations):
 
 print(k_values, lowest_variance, len(clusters[0]), len(clusters[1]), len(clusters[2]))
 
-
 def categorize_value_z_score_col(value, col_average, col_std_dev):
     z_score = (value - col_average) / col_std_dev
-    if z_score < -2.5:
+    if z_score < -2:
         return 0, z_score
-    elif -2.5 <= z_score < -1.5:
+    elif -2 <= z_score < -1:
         return 1, z_score
-    elif -1.5 <= z_score < -0.5:
+    elif -1 <= z_score < 0:
         return 2, z_score
-    elif -0.5 <= z_score < 0.5:
+    elif 0 <= z_score < 1:
         return 3, z_score
-    elif 0.5 <= z_score < 1.5:
-        return 4, z_score
-    elif 1.5 <= z_score < 2.5:
-        return 5, z_score
     else:
-        return 6, z_score
+        return 4, z_score
 
-category_counts_col = {i: [0] * len(best_k_groups) for i in range(7)}
+category_counts_col = {i: [0] * len(best_k_groups) for i in range(5)}
 
 for i, group in enumerate(best_k_groups):
     data_headers = [extracted_headers[index] for index in group]
@@ -249,19 +244,18 @@ for i, group in enumerate(best_k_groups):
     for value in data_group:
         category, _ = categorize_value_z_score_col(value, col_average, col_std_dev)
         category_counts_col[category][i] += 1
-    
 
 # Plotting the bar graph for all groups
 plt.figure(figsize=(10, 6))
 bar_width = 0.2
 for i in range(len(best_k_groups)):
-    counts = [(category_counts_col[cat][i] / len(best_k_groups[i]) * 100) for cat in range(7)]
-    plt.bar([j + bar_width * i for j in range(0, 7)], counts, width=bar_width, label=f'Group {i+1}')
+    counts = [(category_counts_col[cat][i] / len(best_k_groups[i]) * 100) for cat in range(5)]
+    plt.bar([j + bar_width * i for j in range(0, 5)], counts, width=bar_width, label=f'Group {i+1}')
 
 plt.xlabel('Category')
 plt.ylabel('Percentage')
 plt.title('Category Counts for All Groups')
-plt.xticks([i + bar_width for i in range(0, 7)], [str(i) for i in range(7)])
+plt.xticks([i + bar_width for i in range(0, 5)], [str(i) for i in range(5)])
 plt.legend()
 # plt.show()
 plt.savefig("category_counts.png")
