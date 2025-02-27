@@ -232,6 +232,11 @@ for _ in range(0, int(sys.argv[1])):
 
 hist1_cluster_percentages = [[] for _ in range(len(best_k_groups))]
 
+print("Length of Groups: ", len(best_k_groups[0]), len(best_k_groups[1]), len(best_k_groups[2]))
+print("Best Initial K Values: ", best_initial_k_values)
+print("Best Ending K Values: ", best_ending_k_values)
+print("Best Total Variance: ", past_lowest_variance)
+
 print(csv_headers[0][13])
 # HIST 1
 for i, group in enumerate(best_k_groups):
@@ -242,15 +247,14 @@ for i, group in enumerate(best_k_groups):
         percentage_counter = 0
         for count, col in enumerate(row): 
             if int(row[count]) == 1 and int(csv_data[count][13]) == 1:
-                print("here")
                 percentage_counter += 1
         # print(f"Row: ({headers[j]})", j, ": " , round(percentage_counter / len(row) * 100, 2), "%")
         hist1_cluster_percentages[i].append(round(percentage_counter / len(row) * 100, 2))
 
 plt.title("Hist1 Region Features")
 plt.xlabel("Clusters")
-plt.ylabel("Percentage of each NP that detected a window")
-plt.boxplot(hist1_cluster_percentages, showfliers=True)
+plt.ylabel("Percentage of each NP that detected a Hist1 feature")
+plt.boxplot(hist1_cluster_percentages, showfliers=False)
 for i in range(len(hist1_cluster_percentages)):
     y = hist1_cluster_percentages[i]
     x = [i + 1] * len(y)
@@ -275,8 +279,8 @@ for i, group in enumerate(best_k_groups):
 
 plt.title("LAD Region Features")
 plt.xlabel("Clusters")
-plt.ylabel("Percentage of each NP that detected a window")
-plt.boxplot(lad_cluster_percentages, showfliers=True)
+plt.ylabel("Percentage of each NP that detected a LAD feature")
+plt.boxplot(lad_cluster_percentages, showfliers=False)
 for i in range(len(lad_cluster_percentages)):
     y = lad_cluster_percentages[i]
     x = [i + 1] * len(y)

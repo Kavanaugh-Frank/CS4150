@@ -60,8 +60,8 @@ def calculate_similarity_matrix(data):
                 elif A == 0 and B == 1:
                     Y += 1
         
-            J = W / (W + X + Y)
-            # J = W / min(W + X, W + Y)
+            # J = W / (W + X + Y)
+            J = W / min(W + X, W + Y)
 
             # setting the Matrix with the similarity scores
             result_matrix[col1][col2] = J
@@ -136,7 +136,7 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
             result = [data[index] for index in k_group]
             group_result_matrix = calculate_similarity_matrix(result)
 
-            lowest_col_idx, lowest_col = calculate_medoid_on_columns(group_result_matrix)
+            lowest_col_idx, _ = calculate_medoid_on_columns(group_result_matrix)
 
             # update the lowest column no matter what
             new_k_values.append(k_group[lowest_col_idx])
@@ -145,7 +145,7 @@ def k_medoid_clustering(result_matrix, data, headers, number_of_groups, k_values
         if new_k_values == k_values:
             break
 
-        k_values = new_k_values
+        k_values = new_k_values.copy()
 
     return k_values, k_groups
 
@@ -240,11 +240,11 @@ def plot_heatmap(matrix, title):
     plt.title(title)
     plt.show()
 
-for idx, k_group in enumerate(best_k_groups):
-    group_data = [data[i] for i in k_group]
-    matrix = []
-    for col_index in k_group:
-        col = [int(data[col_index][i]) for i in range(len(data[col_index]))]
-        matrix.append(col)
+# for idx, k_group in enumerate(best_k_groups):
+#     group_data = [data[i] for i in k_group]
+#     matrix = []
+#     for col_index in k_group:
+#         col = [int(data[col_index][i]) for i in range(len(data[col_index]))]
+#         matrix.append(col)
 
-    plot_heatmap(matrix, f"Heatmap for Group {idx + 1}")
+#     plot_heatmap(matrix, f"Heatmap for Group {idx + 1}")
