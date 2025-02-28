@@ -24,7 +24,6 @@ feature_map = {}
 with open("Hist1_region_features.csv", "r") as f:
     headers = f.readline().split(",")
     headers = [header.strip() for header in headers]
-    print(headers)
     for feature in features:
         feature_map[feature] = headers.index(feature)
 
@@ -155,7 +154,7 @@ def k_means(extracted_nps, k_values, num_groups, max_iter=100):
             new_k_values.append(medoid)
 
         if sorted(new_k_values) == sorted(k_values):
-            print("Converge")
+            print("Converge => ", new_k_values, "\n")
             break
         k_values = new_k_values
 
@@ -219,13 +218,13 @@ for _ in range(number_of_iterations):
         best_ending_k_values = k_values
         best_k_groups = clusters
 
-print("Final Medoids: ", k_values)
+print("\nFinal Medoids: ", best_ending_k_values)
 print("Lowest Variance: ", lowest_variance)
 print("Cluster Sizes: ")
 for i, cluster in enumerate(clusters):
     print(f"  Cluster {i+1}: {len(cluster)} elements")
 
-
+colors = ['b', 'r', 'g']
 
 for i, group in enumerate(best_k_groups):
     feature_counts = {feature: 0 for feature in features}
@@ -244,21 +243,23 @@ for i, group in enumerate(best_k_groups):
 
         feature_counts[feature] = feature_count / (len(group_data[0]) * len(group_data)) * 100
 
-    print(feature_counts)
-    # Create a spider chart
     labels = list(feature_counts.keys())
     stats = list(feature_counts.values())
 
+    # making each of the feature labels evenly spread apart
     angles = [n / float(len(labels)) * 2 * math.pi for n in range(len(labels))]
+
+    # making it so that the first and last item is the same, and the graph is circular
     stats += stats[:1]
     angles += angles[:1]
 
     ax = plt.subplot(111, polar=True)
     plt.xticks(angles[:-1], labels)
 
-    ax.plot(angles, stats)
-    ax.fill(angles, stats, 'b', alpha=0.1)
-    ax.set_xlabel(f"Cluster {i+1} with Medoid of {extracted_headers[best_ending_k_values[i]]}")
+    # setting the plot, and giving each of the 3 clusters a unique color
+    ax.plot(angles, stats, color=colors[i])
 
-    # plt.title(f'Group {i+1} Feature Averages')
-    plt.show()
+    # setting the xlabel which in this case would be my figure title
+    ax.set_xlabel(f"Cluster Overlay (Blue Idx => {best_ending_k_values[0]}, Red Idx =>  {best_ending_k_values[1]}, Green Idx => {best_ending_k_values[2]})")
+
+plt.savefig("Clusters")
