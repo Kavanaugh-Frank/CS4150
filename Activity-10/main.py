@@ -103,6 +103,9 @@ def k_means(extracted_nps, k_values, num_groups, max_iter=100):
         for i in range(len(jaccard_matrix)):
             similarities = [jaccard_matrix[k][i] for k in k_values]
             max_value = max(similarities)
+            # there is a tie in the similarity score
+            # in this case I find the group with the least number of NPs
+            # that also shares the max similarity score
             if similarities.count(max_value) > 1:
                 min_group_size = float('inf')
                 min_group_size_index = -1
@@ -202,16 +205,18 @@ best_initial_k_values = []
 best_ending_k_values = []
 best_k_groups = []
 for _ in range(number_of_iterations):
+    # random.sample does sample without replacement so that the initial k-values would never be the same
     k_values = random.sample(range(len(extracted_nps)), num_groups)
 
     print("Initial Medoids: ", k_values)
 
-    initial_medoid = k_values.copy()
+    initial_medoid = k_values.copy() # to keep track for later use
 
     k_values, clusters = k_means(extracted_nps, k_values, num_groups)
 
     variance = calculate_variance(clusters, extracted_nps, extracted_headers)
 
+    # keeping track of the best clustering and the associated data
     if variance < lowest_variance:
         lowest_variance = variance
         best_initial_k_values = initial_medoid
@@ -224,25 +229,34 @@ print("Cluster Sizes: ")
 for i, cluster in enumerate(clusters):
     print(f"  Cluster {i+1}: {len(cluster)} elements")
 
+
+
 colors = ['b', 'r', 'g']
 
+# going through each of the features and calculating the percentage of occurrences for that feature in each cluster
 for i, group in enumerate(best_k_groups):
+    # the count per feature for each group
     feature_counts = {feature: 0 for feature in features}
+    # the actual column data for the group
     group_data = [extracted_nps[i] for i in group]
 
-    group_size = len(group)
-
     for feature in features:
+        # features_map is the index in the csv for each feature, this grabs that index
         feature_index = feature_map[feature]
         feature_count = 0
 
+        # looping through the row and col to count the feature
         for row in group_data:
             for col_idx, col in enumerate(row):  
+                # does the specific column and row have a 1
+                # and does the same index in the csv file, for the feature\
                 if int(row[col_idx]) == 1 and int(csv_data[col_idx][feature_index]) == 1:
                     feature_count += 1
 
+        # adding to the hash map of all the features for the group the average
         feature_counts[feature] = feature_count / (len(group_data[0]) * len(group_data)) * 100
 
+    # below here is the code to make the spider plot
     labels = list(feature_counts.keys())
     stats = list(feature_counts.values())
 
