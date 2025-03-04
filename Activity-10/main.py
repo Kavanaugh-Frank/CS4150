@@ -68,32 +68,32 @@ print("Number of Windows: ", len(extracted_nps[0]))
 # function to create a Jaccard Similarity 2D Matrix
 # using the normalized denominator
 def calculate_similarity_matrix(data):
-        result_matrix = [[None for _ in range(len(data))] for _ in range(len(data))]
+    result_matrix = [[None for _ in range(len(data))] for _ in range(len(data))]
         
-        for col1 in range(len(data)):
-            for col2 in range(len(data)):
-                W = 0 # A = 1, B = 1
-                X = 0 # A = 1, B = 0
-                Y = 0 # A = 0, B = 1
+    for col1 in range(len(data)):
+        for col2 in range(len(data)):
+            W = 0 # A = 1, B = 1
+            X = 0 # A = 1, B = 0
+            Y = 0 # A = 0, B = 1
 
-                for index in range(len(data[0])):
-                    A = int(data[col1][index])
-                    B = int(data[col2][index])
-                    if A == 1 and B == 1:
-                        W += 1
-                    elif A == 1 and B == 0:
-                        X += 1
-                    elif A == 0 and B == 1:
-                        Y += 1
+            for index in range(len(data[0])):
+                A = int(data[col1][index])
+                B = int(data[col2][index])
+                if A == 1 and B == 1:
+                    W += 1
+                elif A == 1 and B == 0:
+                    X += 1
+                elif A == 0 and B == 1:
+                    Y += 1
             
-                denominator = min(W + X, W + Y)
-                if denominator == 0:
-                    J = 0
-                else:
-                    J = W / denominator
+            denominator = min(W + X, W + Y)
+            if denominator == 0:
+                J = 0
+            else:
+                J = W / denominator
 
-                result_matrix[col1][col2] = J
-        return result_matrix
+            result_matrix[col1][col2] = J
+    return result_matrix
 
 # the k-medoids clustering functions
 def k_means(extracted_nps, k_values, num_groups, max_iter=100):   
@@ -204,11 +204,11 @@ lowest_variance = float('inf')
 best_initial_k_values = []
 best_ending_k_values = []
 best_k_groups = []
-for _ in range(number_of_iterations):
+for iter in range(number_of_iterations):
     # random.sample does sample without replacement so that the initial k-values would never be the same
     k_values = random.sample(range(len(extracted_nps)), num_groups)
 
-    print("Initial Medoids: ", k_values)
+    print("Initial Medoids: ", k_values, " ", iter)
 
     initial_medoid = k_values.copy() # to keep track for later use
 
@@ -267,13 +267,13 @@ for i, group in enumerate(best_k_groups):
     stats += stats[:1]
     angles += angles[:1]
 
-    ax = plt.subplot(111, polar=True)
+    subplot = plt.subplot(111, polar=True) # the subplot, the lines that represent each group
     plt.xticks(angles[:-1], labels)
 
     # setting the plot, and giving each of the 3 clusters a unique color
-    ax.plot(angles, stats, color=colors[i])
+    subplot.plot(angles, stats, color=colors[i])
 
     # setting the xlabel which in this case would be my figure title
-    ax.set_xlabel(f"Cluster Overlay (Blue Idx => {best_ending_k_values[0]}, Red Idx =>  {best_ending_k_values[1]}, Green Idx => {best_ending_k_values[2]})")
+    subplot.set_xlabel(f"Cluster Overlay (Blue Idx => {best_ending_k_values[0]}, Red Idx =>  {best_ending_k_values[1]}, Green Idx => {best_ending_k_values[2]})")
 
 plt.savefig("Clusters")
