@@ -52,7 +52,7 @@ def calculate_normal_linkage(row_a, row_b):
 
     co_segregation = float(co_segregation) / len(row_a)
 
-    # Detection Freq function
+    # detection freq function
     def calculate_detection_freq(inner_row):
         detection_freq = 0
         for _, inner_value in enumerate(inner_row):
@@ -60,14 +60,14 @@ def calculate_normal_linkage(row_a, row_b):
                 detection_freq += 1
         return float(detection_freq) / len(inner_row)
 
-    # Detection Freq of A and B
+    # detection freq of A and B
     freq_a = calculate_detection_freq(row_a)
     freq_b = calculate_detection_freq(row_b)
 
-    # Linkage
+    # linkage
     linkage = co_segregation - (freq_a * freq_b)
 
-    # Normalized Linkage
+    # normalized linkage
     max_linkage = None
 
     if linkage < 0:
@@ -78,17 +78,13 @@ def calculate_normal_linkage(row_a, row_b):
         # if linkage == 0
         return linkage
 
-    if (linkage / max_linkage) == -1:
-        print(linkage, max_linkage)
-
     return linkage / max_linkage
 
 
 # making the normalized linkage table
 normalized_linkage_table = [
     [
-        calculate_normal_linkage(extracted_windows[i], extracted_windows[j])
-        for j in range(num_windows)
+        calculate_normal_linkage(extracted_windows[i], extracted_windows[j]) for j in range(num_windows)
     ]
     for i in range(num_windows)
 ]
