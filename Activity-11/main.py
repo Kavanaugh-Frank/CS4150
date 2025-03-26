@@ -42,27 +42,24 @@ with open("chr13.txt", "r", encoding="utf-8") as f:
 
 num_windows = len(extracted_headers)
 
+# some constant-ish value for all the divisions
+row_length = len(extracted_windows[0])
 
-def calculate_normal_linkage(row_a, row_b):
+# precompute the detection frequency
+detection_freq = [sum(map(int, row)) / row_length for row in extracted_windows]
+
+def calculate_normal_linkage(row_a, row_b, idx_a, idx_b):
     # co-segregation
     co_segregation = 0
     for idx, _ in enumerate(row_a):
         if int(row_a[idx]) == 1 and int(row_b[idx]) == 1:
             co_segregation += 1
 
-    co_segregation = float(co_segregation) / len(row_a)
-
-    # detection freq function
-    def calculate_detection_freq(inner_row):
-        detection_freq = 0
-        for _, inner_value in enumerate(inner_row):
-            if int(inner_value) == 1:
-                detection_freq += 1
-        return float(detection_freq) / len(inner_row)
+    co_segregation = float(co_segregation) / row_length
 
     # detection freq of A and B
-    freq_a = calculate_detection_freq(row_a)
-    freq_b = calculate_detection_freq(row_b)
+    freq_a = detection_freq[idx_a]
+    freq_b = detection_freq[idx_b]
 
     # linkage
     linkage = co_segregation - (freq_a * freq_b)
@@ -84,7 +81,7 @@ def calculate_normal_linkage(row_a, row_b):
 # making the normalized linkage table
 normalized_linkage_table = [
     [
-        calculate_normal_linkage(extracted_windows[i], extracted_windows[j]) for j in range(num_windows)
+        calculate_normal_linkage(extracted_windows[i], extracted_windows[j], i, j) for j in range(num_windows)
     ]
     for i in range(num_windows)
 ]
