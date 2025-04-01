@@ -156,9 +156,6 @@ network_graph.add_edges_from(edges)
 # and can be reproduced by my teammates to check for accuracy
 pos = nx.spring_layout(network_graph, seed=123)  
 
-# Adjust the spring layout to force more spacing between nodes
-pos = nx.spring_layout(network_graph, seed=123)  # Increase the `k` value for more spacing
-
 # plotting the network figure, using NetworkX
 plt.figure(figsize=(8, 8))
 nx.draw(
