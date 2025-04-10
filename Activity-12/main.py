@@ -1,5 +1,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
+import math
+import numpy as np
 
 # filter out the rows of the full genome to only the HIST1 region
 with open("data.txt", "r", encoding="utf-8") as f:
@@ -21,14 +23,14 @@ with open("chr13.txt", "r", encoding="utf-8") as f:
 
     # get the headers and windows from the dataset
     extracted_headers = [row.split("\t")[0:3] for row in all_lines]
-    extracted_windows = [row.split("\t")[2:] for row in all_lines]
+    extracted_windows = [row.split("\t")[3:] for row in all_lines]
 
     # find the columns that need to be deleted (those without any 1's)
     cols_to_delete = []
     for col, _ in enumerate(extracted_windows[0]):
         all_zero = True
         for row, _ in enumerate(extracted_windows):
-            if int(extracted_windows[row][col]) == 1:
+            if int(extracted_windows[row][col].strip()) == 1:
                 all_zero = False
         if all_zero:
             cols_to_delete.append(col)
@@ -40,6 +42,7 @@ with open("chr13.txt", "r", encoding="utf-8") as f:
             if col_index not in cols_to_delete:
                 new_row.append(value)
         extracted_windows[row_index] = new_row
+
 
 num_windows = len(extracted_headers)
 
@@ -91,35 +94,37 @@ normalized_linkage_table = [
 # so that I can get the 75th percentile value
 oneD_Linkage = []
 
-# looping through the 2D array of normalized linkage values
+# another constant-ish value for the number of rows in the linkage table
+# for this data set it should be 81, but for my sake just call the len function this
+normalized_table_row_length = len(normalized_linkage_table)
+
+# looping through the upper triangle of the 2D array of normalized linkage values
 # and appending them to a 1D array for sorting
 # unique values only, and nothing where A = B
-for i in range(len(normalized_linkage_table)):
-    for j in range(i + 1, len(normalized_linkage_table)):
+for i in range(normalized_table_row_length):
+    for j in range(i + 1, normalized_table_row_length):
         oneD_Linkage.append(normalized_linkage_table[i][j])
 
 print("Number of Unique Combinations of Normalized Linkage Table: ", len(oneD_Linkage))
 
 # sort the array so that I can easily find the 75th percentile value
 oneD_Linkage.sort()
-percentile_75 = oneD_Linkage[int(0.75 * len(oneD_Linkage))]
+percentile_75 = oneD_Linkage[math.ceil(0.75 * len(oneD_Linkage))]
 print("75th Percentile Value: ", percentile_75)
 
-# create a graph object
-network_graph = nx.Graph()
 # list that will store tuples of edges
 edges = []
 
 # going and finding the edges in the normalized linkage matrix
 # an edge is defined as any value over the 75th percentile
-for i in range(len(normalized_linkage_table)):
-    for j in range(i + 1, len(normalized_linkage_table)):
+for i in range(normalized_table_row_length):
+    for j in range(i + 1, normalized_table_row_length):
         if normalized_linkage_table[i][j] > percentile_75:
             edges.append((i, j))
 
 # Degree of Centrality
-# 81 zeros for each of the windows
-degreeOfCentrality = [0 for _ in range(len(normalized_linkage_table))]
+# row_length zeros for each of the windows
+degreeOfCentrality = [0 for _ in range(normalized_table_row_length)]
 
 # since there is 2 nodes that connect an edge
 # have to increment both nodes for a single edge
@@ -127,13 +132,16 @@ for edge in edges:
     degreeOfCentrality[edge[0]] += 1
     degreeOfCentrality[edge[1]] += 1
 
-# dividing each total count of edges with the N - 1 number of nodes (80 windows)
-degreeOfCentrality = [(extracted_headers[i], i, (degree / 80)) for i, degree in enumerate(degreeOfCentrality)]
+# dividing each total count of edges with the row_length - 1 number of nodes
+# creating a tuple for each index -> (name, index, degree of centrality)
+degreeOfCentrality = [
+    (extracted_headers[i], i, (degree / (normalized_table_row_length - 1))) for i, degree in enumerate(degreeOfCentrality)
+]
 
 # sorting using the degree as the key
 degreeOfCentrality.sort(key=lambda x: x[2])
 
-# Calculate min, max, and average degree of centrality
+# calculating min, max, and average degree of centrality
 min_degree = min(degreeOfCentrality, key=lambda x: x[2])
 max_degree = max(degreeOfCentrality, key=lambda x: x[2])
 avg_degree = sum(degree[2] for degree in degreeOfCentrality) / len(degreeOfCentrality)
@@ -150,25 +158,36 @@ with open("output.txt", "w", encoding="UTF-8") as f:
 
 
 # Graphing Section
-network_graph.add_edges_from(edges)
+# create a graph object
+network_graph = nx.Graph()
 
-# seed the graphs random positioning so that it is the same each time
-# and can be reproduced by my teammates to check for accuracy
-pos = nx.spring_layout(network_graph, seed=123)  
+network_graph.add_edges_from(edges)
 
 # plotting the network figure, using NetworkX
 plt.figure(figsize=(8, 8))
+
+# calculate node sizes based on the number of connections (degree of centrality)
+node_sizes = {index: centrality * 2500 for _, index, centrality in degreeOfCentrality}
+
+# seed the graphs random positioning so that it is the same each time
+# and can be reproduced by my teammates to check for accuracy
+# increase k for more spacing between nodes
+pos = nx.spring_layout(network_graph, seed=123, k=1.8)  
+
+# Draw the graph
 nx.draw(
-    network_graph, 
-    pos=pos, 
-    with_labels=True, 
-    node_color="blue", 
+    network_graph,
+    pos=pos,
+    with_labels=True,
+    node_color="yellow",
     edge_color="gray",
-    node_size=250, 
-    font_size=10, 
-    font_color="white"
+    node_size=[node_sizes.get(node, 1) for node in network_graph.nodes()],
+    font_size=10,
+    font_color="black",
+    linewidths=1,
+    edgecolors="black"
 )
+
+# Adjust spacing between nodes
 plt.title("Network Graph of the Windows in the Hist1 Region")
 plt.savefig("Network")
-
-
