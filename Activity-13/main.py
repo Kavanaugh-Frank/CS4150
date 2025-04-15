@@ -159,10 +159,12 @@ print("Hubs:", node_hubs)
 
 # function to find and return the neighbors of each of the node hubs
 def find_neighbors(hub):
-    neighbors = []
+    neighbors = [] # list of the neighbors
     for edge in edges:
         if hub[1] not in edge:
             continue
+        # check if the first edge is within the pair and if so add it
+        # if we made it this fair then the second node is in the pair so add that
         neighbors.append(edge[0] if edge[1] == hub[1] else edge[1])
     return neighbors
 
@@ -171,7 +173,10 @@ neighbor_list = []
 for i, hub in enumerate(node_hubs):
     neighbor_list.append(find_neighbors(hub))
     print("Size of Community", i, ":", len(neighbor_list[i]))
-
+    print(neighbor_list[i])
+# function to gather the information about each of the windows
+# and the hist1 features within them
+# returns a dictionary with the results
 def preprocess_hist1_features(file_path):
     hist1_dict = {}
     with open(file_path, "r", encoding="UTF-8") as f:
@@ -180,6 +185,9 @@ def preprocess_hist1_features(file_path):
             hist1_dict[row["name"]] = int(row["Hist1"])
     return hist1_dict
 
+# function to gather the information about each of the windows
+# and the LAD features within them
+# returns a dictionary with the results
 def preprocess_lad_features(file_path):
     hist1_dict = {}
     with open(file_path, "r", encoding="UTF-8") as f:
@@ -188,13 +196,16 @@ def preprocess_lad_features(file_path):
             hist1_dict[row["name"]] = int(row["LAD"])
     return hist1_dict
 
+# call the preprocessing functions to gather the feature information
 hist1_features = preprocess_hist1_features("Hist1_region_features.csv")    
 lad_features = preprocess_lad_features("Hist1_region_features.csv")
 
+# look through each of the center hubs
 for index, hub in enumerate(node_hubs):
-    community_size = len(neighbor_list[index])
     hist1_count = 0
     lad_count = 0
+    
+    # for each center hub go through their neighbors and count the number of HIST1 and LAD features
     for node in neighbor_list[index]:
         node_name = degreeOfCentrality[node][0]
         if hist1_features[node_name] == 1:
@@ -202,6 +213,11 @@ for index, hub in enumerate(node_hubs):
         if lad_features[node_name] == 1:
             lad_count += 1
 
+    # the number of neighbors each node has
+    # used to calculate the percentages
+    community_size = len(neighbor_list[index])
+
+    # calculating the percentage of neighbors that has either the HIST1 or LAD feature
     hist1_percentage = (hist1_count / community_size) * 100
     print(f"\nCommunity {index}: {hist1_percentage:.2f}% of nodes have the HIST1 feature.")
 
@@ -209,6 +225,7 @@ for index, hub in enumerate(node_hubs):
     print(f"Community {index}: {lad_percentage:.2f}% of nodes have the LAD feature.")
 
 def graph_community_interactions(community, community_index):
+    # helper function to get the interactions between nodes in the same community
     def get_community_interactions(community):
         community_edges = []
         for edge in edges:
@@ -216,22 +233,27 @@ def graph_community_interactions(community, community_index):
                 community_edges.append(edge)
         return community_edges
     community_edges = get_community_interactions(community)
-    # community_nodes = set(node for edge in community_edges for node in edge)
 
+    # make the graphing object
     network_graph = nx.Graph()
-
+    # add the edges to the graph, which in turn adds the nodes
     network_graph.add_edges_from(community_edges)
-    print(network_graph.number_of_nodes())
 
     # plotting the network figure, using NetworkX
     plt.figure(figsize=(8, 8))
 
     # calculate node sizes based on the number of connections (degree of centrality)
+    # multiply by the constant of 2500 to for a larger size in the graph and better visuals
     node_sizes = {index: centrality * 2500 for _, index, centrality in degreeOfCentrality}
 
+    # make the layout of the graph, seed it with 123 for constant positions
+    # and set k to 1.8 for spacing between nodes and less overlap
     pos = nx.spring_layout(network_graph, seed=123, k=1.8)  
 
-    # Draw the graph
+    # put the title on the graph
+    plt.title(f"Network Graph of the Windows in Community {community_index}")
+
+    # draw the nodes and edges
     nx.draw(
         network_graph,
         pos=pos,
@@ -245,15 +267,15 @@ def graph_community_interactions(community, community_index):
         edgecolors="black"
     )
 
-    # Adjust spacing between nodes
-    plt.title(f"Network Graph of the Windows in Community {community_index}")
+    # save the graph
     plt.savefig(f"Network {community_index}")
 
+# actually making the network graphs for each of the communities
 for index, community in enumerate(neighbor_list):
     graph_community_interactions(community, index)
 
 def plot_heatmap(matrix, community, community_index):
-    # Create a new matrix with zeros for rows/cols not in the community
+    # create a new matrix with zeros for rows/cols not in the community
     filtered_matrix = [[0 for _ in range(len(matrix))] for _ in range(len(matrix))]
     for i in community:
         for j in community:
@@ -268,6 +290,6 @@ def plot_heatmap(matrix, community, community_index):
     plt.savefig(f"Heatmap for Community {community_index}")
     plt.close()
 
-# Plot heatmap for each community
+# plot heatmap for each community
 for index, community in enumerate(neighbor_list):
     plot_heatmap(normalized_linkage_table, community, index)
